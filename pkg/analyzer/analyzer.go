@@ -1,0 +1,327 @@
+package analyzer
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/schollz/progressbar/v3"
+	"golang.org/x/mod/modfile"
+)
+
+type AnalysisResult struct {
+	GoVersion       string            `json:"go_version"`
+	Frameworks      []string          `json:"frameworks"`
+	SecretKeys      []string          `json:"secret_keys"`
+	TODOs           []string          `json:"todos"`
+	EmptyFiles      []string          `json:"empty_files"`
+	TotalLines      int               `json:"total_lines"`
+	CommentLines    int               `json:"comment_lines"`
+	EmptyLines      int               `json:"empty_lines"`
+	Packages        map[string]string `json:"packages"`
+	ProjectSize     int64             `json:"project_size"`
+	TotalGoFiles    int               `json:"total_go_files"`
+	IgnoredPatterns []string          `json:"ignored_patterns"`
+}
+
+type fileResult struct {
+	path     string
+	content  string
+	isGoFile bool
+}
+
+type Analyzer struct {
+	path            string
+	ignoredPatterns []string
+	progressBar     *progressbar.ProgressBar
+}
+
+func NewAnalyzer(path string) *Analyzer {
+	return &Analyzer{
+		path: path,
+		ignoredPatterns: []string{
+			".git",
+			"vendor",
+			".vscode",
+			"node_modules",
+			"*.exe",
+			"*.test",
+			"*.out",
+		},
+	}
+}
+
+func (a *Analyzer) Analyze() (*AnalysisResult, error) {
+	result := &AnalysisResult{
+		Packages:        make(map[string]string),
+		IgnoredPatterns: a.ignoredPatterns,
+	}
+
+	// Initialize progress bar
+	a.progressBar = progressbar.Default(-1, "Analyzing project...")
+
+	// Analyze go.mod file
+	if err := a.analyzeGoMod(result); err != nil {
+		return nil, err
+	}
+
+	fileChan := make(chan fileResult, 100)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		a.scanFiles(fileChan)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(fileChan)
+	}()
+
+	for file := range fileChan {
+		if file.isGoFile {
+			result.TotalGoFiles++
+			a.analyzeGoFile(file.path, file.content, result)
+		}
+		a.analyzeFile(file.path, file.content, result)
+	}
+
+	return result, nil
+}
+
+func (a *Analyzer) scanFiles(fileChan chan<- fileResult) {
+	err := filepath.Walk(a.path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		for _, pattern := range a.ignoredPatterns {
+			if matched, _ := filepath.Match(pattern, info.Name()); matched {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
+
+		if !info.IsDir() {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			isGoFile := strings.HasSuffix(path, ".go")
+			fileChan <- fileResult{
+				path:     path,
+				content:  string(content),
+				isGoFile: isGoFile,
+			}
+			a.progressBar.Add(1)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("Error scanning files: %v\n", err)
+	}
+}
+
+func (a *Analyzer) analyzeGoMod(result *AnalysisResult) error {
+	modPath := filepath.Join(a.path, "go.mod")
+	if _, err := os.Stat(modPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	content, err := os.ReadFile(modPath)
+	if err != nil {
+		return err
+	}
+
+	f, err := modfile.Parse("go.mod", content, nil)
+	if err != nil {
+		return err
+	}
+
+	if f.Go != nil {
+		result.GoVersion = f.Go.Version
+	}
+
+	for _, req := range f.Require {
+		result.Packages[req.Mod.Path] = req.Mod.Version
+	}
+
+	return nil
+}
+
+func (a *Analyzer) analyzeGoFile(path, content string, result *AnalysisResult) {
+	// Skip analyzing the analyzer code itself
+	if strings.Contains(path, "analyzer.go") {
+		return
+	}
+
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if line == "" {
+			result.EmptyLines++
+			continue
+		}
+
+		if strings.HasPrefix(line, "//") {
+			result.CommentLines++
+			if strings.Contains(strings.ToLower(line), "todo") {
+				result.TODOs = append(result.TODOs, strings.TrimSpace(line))
+			}
+			continue
+		}
+
+		result.TotalLines++
+
+		// Check for frameworks (ignore struct fields and comments)
+		if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
+			if strings.Contains(line, "gin.") {
+				if !contains(result.Frameworks, "gin") {
+					result.Frameworks = append(result.Frameworks, "gin")
+				}
+			}
+			if strings.Contains(line, "echo.") {
+				if !contains(result.Frameworks, "echo") {
+					result.Frameworks = append(result.Frameworks, "echo")
+				}
+			}
+			if strings.Contains(line, "fiber.") {
+				if !contains(result.Frameworks, "fiber") {
+					result.Frameworks = append(result.Frameworks, "fiber")
+				}
+			}
+		}
+
+		// Check for secret keys (ignore struct fields and comments)
+		if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
+			if containsAny(strings.ToLower(line), []string{"apikey", "secret", "password", "token"}) {
+				result.SecretKeys = append(result.SecretKeys, strings.TrimSpace(line))
+			}
+		}
+	}
+
+	// Check for empty files
+	if len(lines) <= 1 {
+		for _, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "package ") {
+				result.EmptyFiles = append(result.EmptyFiles, path)
+				break
+			}
+		}
+	}
+}
+
+func (a *Analyzer) analyzeFile(path, content string, result *AnalysisResult) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+	result.ProjectSize += info.Size()
+}
+
+func (r *AnalysisResult) ToJSON(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(r)
+}
+
+func (r *AnalysisResult) ToText(w io.Writer) error {
+	_, err := fmt.Fprintf(w, `Project Analysis Results:
+-------------------
+Go Version: %s
+Total Go Files: %d
+Total Lines: %d
+Comment Lines: %d
+Empty Lines: %d
+Project Size: %s
+
+Frameworks Used:
+%s
+
+TODOs Found:
+%s
+
+Empty Files:
+%s
+
+Potential Secret Keys:
+%s
+
+Packages Used:
+%s
+`,
+		r.GoVersion,
+		r.TotalGoFiles,
+		r.TotalLines,
+		r.CommentLines,
+		r.EmptyLines,
+		formatSize(r.ProjectSize),
+		formatList(r.Frameworks),
+		formatList(r.TODOs),
+		formatList(r.EmptyFiles),
+		formatList(r.SecretKeys),
+		formatPackages(r.Packages),
+	)
+	return err
+}
+
+func formatList(items []string) string {
+	if len(items) == 0 {
+		return "None"
+	}
+	return strings.Join(items, "\n")
+}
+
+func formatPackages(packages map[string]string) string {
+	if len(packages) == 0 {
+		return "None"
+	}
+	var result []string
+	for pkg, version := range packages {
+		result = append(result, fmt.Sprintf("%s: %s", pkg, version))
+	}
+	return strings.Join(result, "\n")
+}
+
+func formatSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAny(s string, substrs []string) bool {
+	for _, substr := range substrs {
+		if strings.Contains(s, substr) {
+			return true
+		}
+	}
+	return false
+}
