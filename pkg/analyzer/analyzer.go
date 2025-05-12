@@ -57,6 +57,7 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 	now := time.Now()
 	result := &AnalysisResult{
 		Packages:        make(map[string]string),
+		Frameworks:      make(map[string]struct{}),
 		IgnoredPatterns: a.ignoredPatterns,
 	}
 
