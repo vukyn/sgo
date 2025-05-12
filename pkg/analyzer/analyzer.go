@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +20,7 @@ type AnalysisResult struct {
 	ScanDuration    time.Duration       `json:"scan_duration"`
 	GoVersion       string              `json:"go_version"`
 	Frameworks      map[string]struct{} `json:"frameworks"`
-	SecretKeys      []string            `json:"secret_keys"`
+	SecretKeys      []SecretFinding     `json:"secret_keys"`
 	TODOs           []string            `json:"todos"`
 	EmptyGoFiles    []string            `json:"empty_go_files"`
 	EmptyOtherFiles []string            `json:"empty_other_files"`
@@ -32,6 +33,13 @@ type AnalysisResult struct {
 	Warnings        []string            `json:"warnings"`
 	IgnoredPatterns []string            `json:"ignored_patterns"`
 	Summary         SummaryStatus       `json:"summary"`
+}
+
+type SecretFinding struct {
+	File        string `json:"file"`
+	Line        string `json:"line"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
 }
 
 type fileResult struct {
@@ -185,7 +193,7 @@ func (a *Analyzer) analyzeGoFile(path, content string, result *AnalysisResult) {
 			result.EmptyOtherFiles = append(result.EmptyOtherFiles, path) // empty other file
 		}
 	default:
-		for _, line := range lines {
+		for lineNum, line := range lines {
 			line = strings.TrimSpace(line)
 
 			if line == "" {
@@ -195,9 +203,8 @@ func (a *Analyzer) analyzeGoFile(path, content string, result *AnalysisResult) {
 
 			if strings.HasPrefix(line, "//") {
 				result.CommentLines++
-				if strings.Contains(strings.ToLower(line), "todo") {
-					// TODO: add todo file name - line number
-					result.TODOs = append(result.TODOs, strings.TrimSpace(line))
+				if strings.Contains(strings.ToLower(line), "todo:") {
+					result.TODOs = append(result.TODOs, fmt.Sprintf("%s:%d: %s", path, lineNum+1, strings.TrimSpace(line)))
 				}
 				continue
 			}
@@ -219,9 +226,14 @@ func (a *Analyzer) analyzeGoFile(path, content string, result *AnalysisResult) {
 
 			// Check for secret keys (ignore struct fields and comments)
 			if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
-				for _, substr := range DefaultSecretKeys {
-					if strings.Contains(strings.ToLower(line), substr) {
-						result.SecretKeys = append(result.SecretKeys, strings.TrimSpace(line))
+				for _, pattern := range DefaultSecretPatterns {
+					if matched, _ := regexp.MatchString(pattern.Pattern, line); matched {
+						result.SecretKeys = append(result.SecretKeys, SecretFinding{
+							File:        path,
+							Line:        fmt.Sprintf("%d: %s", lineNum+1, strings.TrimSpace(line)),
+							Description: pattern.Description,
+							Category:    pattern.Category,
+						})
 						break
 					}
 				}
@@ -294,7 +306,7 @@ Warnings:
 		formatList(r.TODOs),
 		formatList(r.EmptyGoFiles),
 		formatList(r.EmptyOtherFiles),
-		formatList(r.SecretKeys),
+		formatSecretFindings(r.SecretKeys),
 		formatPackages(r.Packages),
 		formatWarnings(r.Warnings),
 	)
@@ -331,6 +343,21 @@ func formatWarnings(warnings []string) string {
 		return "None"
 	}
 	return strings.Join(warnings, "\n")
+}
+
+func formatSecretFindings(findings []SecretFinding) string {
+	if len(findings) == 0 {
+		return "None"
+	}
+	var result []string
+	for _, finding := range findings {
+		result = append(result, fmt.Sprintf("[%s] %s\n  %s\n  %s",
+			finding.Category,
+			finding.Description,
+			finding.File,
+			finding.Line))
+	}
+	return strings.Join(result, "\n")
 }
 
 func formatSize(size int64) string {

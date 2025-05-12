@@ -14,6 +14,8 @@ SGO is a command-line tool for analyzing and visualizing Go project structure an
 -   [x] Count total .go files
 -   [x] Count total lines of code, comments, and empty lines
 -   [x] Count total packages used (direct and indirect)
+-   [ ] Count non-referenced variables / functions
+-   [ ] Count unimplemented interface
 -   [x] Identify empty Go files and other files
 -   [x] Calculate total project size
 -   [x] Ignore cache/config folders and files
