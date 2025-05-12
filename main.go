@@ -38,6 +38,7 @@ func main() {
 				return fmt.Errorf("analysis failed: %w", err)
 			}
 
+			fmt.Println()
 			if outputFormat == "json" {
 				return result.ToJSON(os.Stdout)
 			}

@@ -17,6 +17,7 @@ SGO is a command-line tool for analyzing and visualizing Go project structure an
 -   [x] Ignore cache/config folders and files
 -   [x] Fast and efficient file scanning
 -   [x] Output in JSON or text format
+-   [x] Summary status of the project
 
 ## Installation
 
@@ -62,7 +63,12 @@ sgo -o json
 	"project_size": 1024000,
 	"total_go_files": 10,
 	"warnings": ["*potential secret key found in codebase"],
-	"ignored_patterns": [".git", "vendor", ".vscode"]
+	"ignored_patterns": [".git", "vendor", ".vscode"],
+	"summary": {
+		"status": "BAD",
+		"score": 75,
+		"notes": ["Large project size (> 100MB)", "Has 15 TODOs"]
+	}
 }
 ```
 
@@ -71,6 +77,11 @@ sgo -o json
 ```bash
 Project Analysis Results:
 --------------------------------
+Status: BAD (Score: 75)
+Notes:
+- Large project size (> 100MB)
+- Has 15 TODOs
+
 Scan Duration: 1.23s
 Go Version: 1.21
 Total Go Files: 10

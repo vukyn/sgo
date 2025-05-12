@@ -31,6 +31,7 @@ type AnalysisResult struct {
 	TotalGoFiles    int                 `json:"total_go_files"`
 	Warnings        []string            `json:"warnings"`
 	IgnoredPatterns []string            `json:"ignored_patterns"`
+	Summary         SummaryStatus       `json:"summary"`
 }
 
 type fileResult struct {
@@ -87,14 +88,14 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 			result.TotalGoFiles++
 			a.analyzeGoFile(file.path, file.content, result)
 		}
-		a.analyzeFile(file.path, file.content, result)
+		a.analyzeFile(file.path, result)
 	}
 
-	if len(result.Warnings) > 0 {
+	if len(result.SecretKeys) > 0 {
 		result.Warnings = append(result.Warnings, "*potential secret key found in codebase")
 	}
 	result.ScanDuration = time.Since(now)
-
+	result.SummaryStatus()
 	return result, nil
 }
 
@@ -228,7 +229,7 @@ func (a *Analyzer) analyzeGoFile(path, content string, result *AnalysisResult) {
 	}
 }
 
-func (a *Analyzer) analyzeFile(path, content string, result *AnalysisResult) {
+func (a *Analyzer) analyzeFile(path string, result *AnalysisResult) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return
@@ -243,9 +244,12 @@ func (r *AnalysisResult) ToJSON(w io.Writer) error {
 }
 
 func (r *AnalysisResult) ToText(w io.Writer) error {
-	fmt.Println()
 	_, err := fmt.Fprintf(w, `Project Analysis Results:
 --------------------------------
+Status: %s (Score: %d)
+Notes:
+%s
+
 Scan Duration: %s
 Go Version: %s
 Total Go Files: %d
@@ -275,6 +279,9 @@ Packages Used:
 Warnings:
 %s
 `,
+		r.Summary.Status,
+		r.Summary.Score,
+		formatList(r.Summary.Notes),
 		r.ScanDuration,
 		r.GoVersion,
 		r.TotalGoFiles,
