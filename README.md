@@ -2,6 +2,8 @@
 
 SGO is a command-line tool for analyzing and visualizing Go project structure and codebase. It provides detailed insights about your Go projects, including code metrics, dependencies, and potential issues.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/vukyn/sgo)
+
 ## Features
 
 -   [x] Scan Go files and relevant project files (go.mod, etc.)
@@ -74,7 +76,7 @@ sgo -o json
 
 ### Text Output
 
-```bash
+```
 Project Analysis Results:
 --------------------------------
 Status: BAD (Score: 75)
