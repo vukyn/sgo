@@ -8,10 +8,15 @@ import (
 	"github.com/vukyn/sgo/pkg/analyzer"
 )
 
+var (
+	Version = "1.0.0"
+)
+
 func main() {
 	app := &cli.App{
-		Name:  "sgo",
-		Usage: "Analyze and visualize Go project structure",
+		Name:    "sgo",
+		Usage:   "Analyze and visualize Go project structure",
+		Version: Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "output",
