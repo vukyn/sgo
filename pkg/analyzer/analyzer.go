@@ -8,24 +8,29 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/schollz/progressbar/v3"
+	"github.com/vukyn/kuery/query"
 	"golang.org/x/mod/modfile"
 )
 
 type AnalysisResult struct {
-	GoVersion       string            `json:"go_version"`
-	Frameworks      []string          `json:"frameworks"`
-	SecretKeys      []string          `json:"secret_keys"`
-	TODOs           []string          `json:"todos"`
-	EmptyFiles      []string          `json:"empty_files"`
-	TotalLines      int               `json:"total_lines"`
-	CommentLines    int               `json:"comment_lines"`
-	EmptyLines      int               `json:"empty_lines"`
-	Packages        map[string]string `json:"packages"`
-	ProjectSize     int64             `json:"project_size"`
-	TotalGoFiles    int               `json:"total_go_files"`
-	IgnoredPatterns []string          `json:"ignored_patterns"`
+	ScanDuration    time.Duration       `json:"scan_duration"`
+	GoVersion       string              `json:"go_version"`
+	Frameworks      map[string]struct{} `json:"frameworks"`
+	SecretKeys      []string            `json:"secret_keys"`
+	TODOs           []string            `json:"todos"`
+	EmptyGoFiles    []string            `json:"empty_go_files"`
+	EmptyOtherFiles []string            `json:"empty_other_files"`
+	TotalLines      int                 `json:"total_lines"`
+	CommentLines    int                 `json:"comment_lines"`
+	EmptyLines      int                 `json:"empty_lines"`
+	Packages        map[string]string   `json:"packages"` // map[package_name]version
+	ProjectSize     int64               `json:"project_size"`
+	TotalGoFiles    int                 `json:"total_go_files"`
+	Warnings        []string            `json:"warnings"`
+	IgnoredPatterns []string            `json:"ignored_patterns"`
 }
 
 type fileResult struct {
@@ -42,20 +47,13 @@ type Analyzer struct {
 
 func NewAnalyzer(path string) *Analyzer {
 	return &Analyzer{
-		path: path,
-		ignoredPatterns: []string{
-			".git",
-			"vendor",
-			".vscode",
-			"node_modules",
-			"*.exe",
-			"*.test",
-			"*.out",
-		},
+		path:            path,
+		ignoredPatterns: DefaultIgnoredPatterns,
 	}
 }
 
 func (a *Analyzer) Analyze() (*AnalysisResult, error) {
+	now := time.Now()
 	result := &AnalysisResult{
 		Packages:        make(map[string]string),
 		IgnoredPatterns: a.ignoredPatterns,
@@ -91,6 +89,11 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 		}
 		a.analyzeFile(file.path, file.content, result)
 	}
+
+	if len(result.Warnings) > 0 {
+		result.Warnings = append(result.Warnings, "*potential secret key found in codebase")
+	}
+	result.ScanDuration = time.Since(now)
 
 	return result, nil
 }
@@ -136,6 +139,7 @@ func (a *Analyzer) scanFiles(fileChan chan<- fileResult) {
 func (a *Analyzer) analyzeGoMod(result *AnalysisResult) error {
 	modPath := filepath.Join(a.path, "go.mod")
 	if _, err := os.Stat(modPath); os.IsNotExist(err) {
+		result.Warnings = append(result.Warnings, "*go.mod file not found")
 		return nil
 	}
 
@@ -161,63 +165,64 @@ func (a *Analyzer) analyzeGoMod(result *AnalysisResult) error {
 }
 
 func (a *Analyzer) analyzeGoFile(path, content string, result *AnalysisResult) {
-	// Skip analyzing the analyzer code itself
-	if strings.Contains(path, "analyzer.go") {
-		return
-	}
-
 	lines := strings.Split(content, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		if line == "" {
-			result.EmptyLines++
-			continue
-		}
-
-		if strings.HasPrefix(line, "//") {
-			result.CommentLines++
-			if strings.Contains(strings.ToLower(line), "todo") {
-				result.TODOs = append(result.TODOs, strings.TrimSpace(line))
-			}
-			continue
-		}
-
-		result.TotalLines++
-
-		// Check for frameworks (ignore struct fields and comments)
-		if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
-			if strings.Contains(line, "gin.") {
-				if !contains(result.Frameworks, "gin") {
-					result.Frameworks = append(result.Frameworks, "gin")
-				}
-			}
-			if strings.Contains(line, "echo.") {
-				if !contains(result.Frameworks, "echo") {
-					result.Frameworks = append(result.Frameworks, "echo")
-				}
-			}
-			if strings.Contains(line, "fiber.") {
-				if !contains(result.Frameworks, "fiber") {
-					result.Frameworks = append(result.Frameworks, "fiber")
-				}
-			}
-		}
-
-		// Check for secret keys (ignore struct fields and comments)
-		if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
-			if containsAny(strings.ToLower(line), []string{"apikey", "secret", "password", "token"}) {
-				result.SecretKeys = append(result.SecretKeys, strings.TrimSpace(line))
-			}
-		}
-	}
 
 	// Check for empty files
-	if len(lines) <= 1 {
+	switch len(lines) {
+	case 0, 1:
+		hasPackage := false
 		for _, line := range lines {
 			if strings.HasPrefix(strings.TrimSpace(line), "package ") {
-				result.EmptyFiles = append(result.EmptyFiles, path)
+				hasPackage = true
 				break
+			}
+		}
+		if hasPackage {
+			result.EmptyGoFiles = append(result.EmptyGoFiles, path) // empty go file
+		} else {
+			result.EmptyOtherFiles = append(result.EmptyOtherFiles, path) // empty other file
+		}
+	default:
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+
+			if line == "" {
+				result.EmptyLines++
+				continue
+			}
+
+			if strings.HasPrefix(line, "//") {
+				result.CommentLines++
+				if strings.Contains(strings.ToLower(line), "todo") {
+					// TODO: add todo file name - line number
+					result.TODOs = append(result.TODOs, strings.TrimSpace(line))
+				}
+				continue
+			}
+
+			result.TotalLines++
+
+			// Check for frameworks (ignore struct fields and comments)
+			if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
+				if strings.Contains(line, "gin.") {
+					result.Frameworks["gin"] = struct{}{}
+				}
+				if strings.Contains(line, "echo.") {
+					result.Frameworks["echo"] = struct{}{}
+				}
+				if strings.Contains(line, "fiber.") {
+					result.Frameworks["fiber"] = struct{}{}
+				}
+			}
+
+			// Check for secret keys (ignore struct fields and comments)
+			if !strings.Contains(line, "struct") && !strings.HasPrefix(line, "//") {
+				for _, substr := range DefaultSecretKeys {
+					if strings.Contains(strings.ToLower(line), substr) {
+						result.SecretKeys = append(result.SecretKeys, strings.TrimSpace(line))
+						break
+					}
+				}
 			}
 		}
 	}
@@ -238,8 +243,10 @@ func (r *AnalysisResult) ToJSON(w io.Writer) error {
 }
 
 func (r *AnalysisResult) ToText(w io.Writer) error {
+	fmt.Println()
 	_, err := fmt.Fprintf(w, `Project Analysis Results:
--------------------
+--------------------------------
+Scan Duration: %s
 Go Version: %s
 Total Go Files: %d
 Total Lines: %d
@@ -253,7 +260,10 @@ Frameworks Used:
 TODOs Found:
 %s
 
-Empty Files:
+Empty Go Files:
+%s
+
+Empty Other Files:
 %s
 
 Potential Secret Keys:
@@ -261,18 +271,24 @@ Potential Secret Keys:
 
 Packages Used:
 %s
+
+Warnings:
+%s
 `,
+		r.ScanDuration,
 		r.GoVersion,
 		r.TotalGoFiles,
 		r.TotalLines,
 		r.CommentLines,
 		r.EmptyLines,
 		formatSize(r.ProjectSize),
-		formatList(r.Frameworks),
+		formatFrameworks(r.Frameworks),
 		formatList(r.TODOs),
-		formatList(r.EmptyFiles),
+		formatList(r.EmptyGoFiles),
+		formatList(r.EmptyOtherFiles),
 		formatList(r.SecretKeys),
 		formatPackages(r.Packages),
+		formatWarnings(r.Warnings),
 	)
 	return err
 }
@@ -295,6 +311,20 @@ func formatPackages(packages map[string]string) string {
 	return strings.Join(result, "\n")
 }
 
+func formatFrameworks(frameworks map[string]struct{}) string {
+	if len(frameworks) == 0 {
+		return "None"
+	}
+	return strings.Join(query.Keys(frameworks), "\n")
+}
+
+func formatWarnings(warnings []string) string {
+	if len(warnings) == 0 {
+		return "None"
+	}
+	return strings.Join(warnings, "\n")
+}
+
 func formatSize(size int64) string {
 	const unit = 1024
 	if size < unit {
@@ -306,22 +336,4 @@ func formatSize(size int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
-func containsAny(s string, substrs []string) bool {
-	for _, substr := range substrs {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }

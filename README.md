@@ -4,20 +4,19 @@ SGO is a command-line tool for analyzing and visualizing Go project structure an
 
 ## Features
 
-- Scan Go files and relevant project files (go.mod, etc.)
-- Detect Go version
-- Identify used Go frameworks
-- Detect potential secret keys in codebase
-- Find TODO comments
-- Identify empty Go files
-- Count total lines of code, comments, and empty lines
-- Count total packages used (direct and indirect)
-- Calculate total project size
-- Count total .go files
-- Ignore cache/config folders and files
-- Show progress bar while scanning
-- Concurrent file scanning using goroutines
-- Output in JSON or text format
+-   [x] Scan Go files and relevant project files (go.mod, etc.)
+-   [x] Detect Go version
+-   [x] Identify used Go frameworks
+-   [x] Detect potential secret keys in codebase
+-   [x] Count TODO comments
+-   [x] Count total .go files
+-   [x] Count total lines of code, comments, and empty lines
+-   [x] Count total packages used (direct and indirect)
+-   [x] Identify empty Go files and other files
+-   [x] Calculate total project size
+-   [x] Ignore cache/config folders and files
+-   [x] Fast and efficient file scanning
+-   [x] Output in JSON or text format
 
 ## Installation
 
@@ -34,10 +33,10 @@ sgo
 # Analyze specific directory
 sgo -p /path/to/project
 
-# Output in text format
+# Output in text format (default)
 sgo -o text
 
-# Output in JSON format (default)
+# Output in JSON format
 sgo -o json
 ```
 
@@ -47,20 +46,23 @@ sgo -o json
 
 ```json
 {
- "go_version": "1.21",
- "frameworks": ["gin", "echo"],
- "secret_keys": [],
- "todos": ["// TODO: Implement error handling"],
- "empty_files": [],
- "total_lines": 1000,
- "comment_lines": 200,
- "empty_lines": 100,
- "packages": {
-  "github.com/gin-gonic/gin": "v1.9.1"
- },
- "project_size": 1024000,
- "total_go_files": 10,
- "ignored_patterns": [".git", "vendor", ".vscode"]
+	"scan_duration": "1.23s",
+	"go_version": "1.21",
+	"frameworks": ["gin", "echo"],
+	"secret_keys": [],
+	"todos": ["// TODO: Implement error handling"],
+	"empty_go_files": [],
+	"empty_other_files": [],
+	"total_lines": 1000,
+	"comment_lines": 200,
+	"empty_lines": 100,
+	"packages": {
+		"github.com/gin-gonic/gin": "v1.9.1"
+	},
+	"project_size": 1024000,
+	"total_go_files": 10,
+	"warnings": ["*potential secret key found in codebase"],
+	"ignored_patterns": [".git", "vendor", ".vscode"]
 }
 ```
 
@@ -68,7 +70,8 @@ sgo -o json
 
 ```bash
 Project Analysis Results:
--------------------
+--------------------------------
+Scan Duration: 1.23s
 Go Version: 1.21
 Total Go Files: 10
 Total Lines: 1000
@@ -83,7 +86,10 @@ echo
 TODOs Found:
 // TODO: Implement error handling
 
-Empty Files:
+Empty Go Files:
+None
+
+Empty Other Files:
 None
 
 Potential Secret Keys:
@@ -91,6 +97,9 @@ None
 
 Packages Used:
 github.com/gin-gonic/gin: v1.9.1
+
+Warnings:
+*potential secret key found in codebase
 ```
 
 ## License

@@ -16,7 +16,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "output",
 				Aliases: []string{"o"},
-				Value:   "json",
+				Value:   "text",
 				Usage:   "Output format (json or text)",
 				EnvVars: []string{"SGO_OUTPUT"},
 			},
