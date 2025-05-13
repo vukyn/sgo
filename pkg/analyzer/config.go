@@ -12,7 +12,7 @@ const (
 	MultipleEmptyFilesThreshold          = 5
 	DeductionMultipleEmptyFiles          = 10
 	MultipleWarningsThreshold            = 5
-	DeductionMultipleWarnings            = 15
+	DeductionMultipleWarnings            = 5
 )
 
 type SecretPattern struct {
@@ -30,6 +30,7 @@ var (
 		"*.exe",
 		"*.test",
 		"*.out",
+		"*.pb.go", // generated protobuf go files
 	}
 
 	DefaultSecretPatterns = []SecretPattern{
@@ -42,7 +43,6 @@ var (
 		// Certificates and Keys
 		{Pattern: `(?i)-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----`, Description: "Private Key", Category: "Certificate"},
 		{Pattern: `(?i)-----BEGIN\s+CERTIFICATE-----`, Description: "Certificate", Category: "Certificate"},
-		{Pattern: `(?i)\.(pem|key|crt|cer|der|p12|pfx)$`, Description: "Certificate File", Category: "Certificate"},
 
 		// Database Credentials
 		{Pattern: `(?i)(db[_-]?(?:password|pass|pwd))["']?\s*[:=]\s*["']?[^"'\s]+`, Description: "Database Password", Category: "Database"},
@@ -55,7 +55,6 @@ var (
 		{Pattern: `(?i)(azure[_-]?(?:key|secret|connection[_-]?string))["']?\s*[:=]\s*["']?[A-Za-z0-9+/]{32,}`, Description: "Azure Credentials", Category: "Cloud"},
 
 		// General Secrets
-		{Pattern: `(?i)(password|passwd|pwd)["']?\s*[:=]\s*["']?[^"'\s]+`, Description: "Password", Category: "General"},
 		{Pattern: `(?i)(secret[_-]?key|secret)["']?\s*[:=]\s*["']?[a-zA-Z0-9]{32,}`, Description: "Secret Key", Category: "General"},
 		{Pattern: `(?i)(auth[_-]?token|auth_token)["']?\s*[:=]\s*["']?[a-zA-Z0-9]{32,}`, Description: "Auth Token", Category: "General"},
 	}

@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"github.com/vukyn/kuery/query"
 	"golang.org/x/mod/modfile"
 )
 
@@ -69,36 +69,71 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 		IgnoredPatterns: a.ignoredPatterns,
 	}
 
-	// Initialize progress bar
-	a.progressBar = progressbar.Default(-1, "Analyzing project...")
+	// Initialize progress bar with random message
+	a.progressBar = progressbar.Default(-1, getRandomProgressMessage())
 
 	// Analyze go.mod file
 	if err := a.analyzeGoMod(result); err != nil {
 		return nil, err
 	}
 
+	// Create channels for the fan-in fan-out pattern
 	fileChan := make(chan fileResult, 100)
+	pathChan := make(chan string, 100)
+	doneChan := make(chan struct{})
 
+	// Get number of CPU cores for optimal worker count
+	numWorkers := runtime.NumCPU()
 	var wg sync.WaitGroup
 
-	wg.Add(1)
+	// Start file scanner
 	go func() {
-		defer wg.Done()
-		a.scanFiles(fileChan)
+		defer close(pathChan)
+		a.scanFiles(pathChan)
 	}()
 
+	// Start worker goroutines
+	for range numWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for path := range pathChan {
+				content, err := os.ReadFile(path)
+				if err != nil {
+					continue
+				}
+
+				isGoFile := strings.HasSuffix(path, ".go")
+				fileChan <- fileResult{
+					path:     path,
+					content:  string(content),
+					isGoFile: isGoFile,
+				}
+				a.progressBar.Add(1)
+			}
+		}()
+	}
+
+	// Start result processor
+	go func() {
+		for file := range fileChan {
+			if file.isGoFile {
+				result.TotalGoFiles++
+				a.analyzeGoFile(file.path, file.content, result)
+			}
+			a.analyzeFile(file.path, result)
+		}
+		doneChan <- struct{}{}
+	}()
+
+	// Wait for all workers to finish and close channels
 	go func() {
 		wg.Wait()
 		close(fileChan)
 	}()
 
-	for file := range fileChan {
-		if file.isGoFile {
-			result.TotalGoFiles++
-			a.analyzeGoFile(file.path, file.content, result)
-		}
-		a.analyzeFile(file.path, result)
-	}
+	// Wait for result processing to complete
+	<-doneChan
 
 	if len(result.SecretKeys) > 0 {
 		result.Warnings = append(result.Warnings, "*potential secret key found in codebase")
@@ -108,7 +143,7 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 	return result, nil
 }
 
-func (a *Analyzer) scanFiles(fileChan chan<- fileResult) {
+func (a *Analyzer) scanFiles(pathChan chan<- string) {
 	err := filepath.Walk(a.path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -124,18 +159,7 @@ func (a *Analyzer) scanFiles(fileChan chan<- fileResult) {
 		}
 
 		if !info.IsDir() {
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			isGoFile := strings.HasSuffix(path, ".go")
-			fileChan <- fileResult{
-				path:     path,
-				content:  string(content),
-				isGoFile: isGoFile,
-			}
-			a.progressBar.Add(1)
+			pathChan <- path
 		}
 
 		return nil
@@ -311,64 +335,4 @@ Warnings:
 		formatWarnings(r.Warnings),
 	)
 	return err
-}
-
-func formatList(items []string) string {
-	if len(items) == 0 {
-		return "None"
-	}
-	return strings.Join(items, "\n")
-}
-
-func formatPackages(packages map[string]string) string {
-	if len(packages) == 0 {
-		return "None"
-	}
-	var result []string
-	for pkg, version := range packages {
-		result = append(result, fmt.Sprintf("%s: %s", pkg, version))
-	}
-	return strings.Join(result, "\n")
-}
-
-func formatFrameworks(frameworks map[string]struct{}) string {
-	if len(frameworks) == 0 {
-		return "None"
-	}
-	return strings.Join(query.Keys(frameworks), "\n")
-}
-
-func formatWarnings(warnings []string) string {
-	if len(warnings) == 0 {
-		return "None"
-	}
-	return strings.Join(warnings, "\n")
-}
-
-func formatSecretFindings(findings []SecretFinding) string {
-	if len(findings) == 0 {
-		return "None"
-	}
-	var result []string
-	for _, finding := range findings {
-		result = append(result, fmt.Sprintf("[%s] %s\n  %s\n  %s",
-			finding.Category,
-			finding.Description,
-			finding.File,
-			finding.Line))
-	}
-	return strings.Join(result, "\n")
-}
-
-func formatSize(size int64) string {
-	const unit = 1024
-	if size < unit {
-		return fmt.Sprintf("%d B", size)
-	}
-	div, exp := int64(unit), 0
-	for n := size / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
