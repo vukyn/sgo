@@ -23,8 +23,8 @@ func (r *AnalysisResult) SummaryStatus() {
 		notes = append(notes, fmt.Sprintf("High number of unresolved TODOs (%d)", len(r.TODOs)))
 		score -= DeductionHighNumberOfTODOs
 	} else if len(r.TODOs) > 0 {
-		notes = append(notes, fmt.Sprintf("Has %d TODOs", len(r.TODOs)))
-		score -= DeductionHighNumberOfTODOs
+		notes = append(notes, fmt.Sprintf("Has %d TODO(s)", len(r.TODOs)))
+		score -= DeductionMinorNumberOfTODOs
 	}
 
 	// Check secret keys
@@ -43,11 +43,11 @@ func (r *AnalysisResult) SummaryStatus() {
 		score -= DeductionMultipleEmptyFiles
 	} else if emptyFilesCount > 0 {
 		notes = append(notes, fmt.Sprintf("Empty files found (%d)", emptyFilesCount))
-		score -= DeductionMultipleEmptyFiles
+		score -= DeductionMinorEmptyFiles
 	}
 
 	// Check warnings
-	if len(r.Warnings) > 5 {
+	if len(r.Warnings) > MultipleWarningsThreshold {
 		notes = append(notes, fmt.Sprintf("Multiple warnings found (%d)", len(r.Warnings)))
 		score -= DeductionMultipleWarnings
 	} else if len(r.Warnings) > 0 {
@@ -58,9 +58,9 @@ func (r *AnalysisResult) SummaryStatus() {
 	// Determine status based on score
 	var status string
 	switch {
-	case score >= 90:
+	case score >= ScorePerfectThreshold:
 		status = "PERFECT"
-	case score >= 70:
+	case score >= ScoreNeedReviewThreshold:
 		status = "NEED REVIEW"
 	default:
 		status = "BAD"

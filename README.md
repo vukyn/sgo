@@ -71,7 +71,7 @@ sgo -o json
 	"summary": {
 		"status": "BAD",
 		"score": 75,
-		"notes": ["Large project size (> 100MB)", "Has 15 TODOs"]
+		"notes": ["Large project size (> 100MB)", "Has 15 TODO(s)"]
 	}
 }
 ```
@@ -84,7 +84,7 @@ Project Analysis Results:
 Status: BAD (Score: 75)
 Notes:
 - Large project size (> 100MB)
-- Has 15 TODOs
+- Has 15 TODO(s)
 
 Scan Duration: 1.23s
 Go Version: 1.21

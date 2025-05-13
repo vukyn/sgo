@@ -3,14 +3,18 @@ package analyzer
 const (
 	// Score system
 	BaseScore                            = 100
+	ScorePerfectThreshold                = 90
+	ScoreNeedReviewThreshold             = 70
 	LargeProjectSizeThreshold            = 100 * 1024 * 1024 // 100MB
 	DeductionLargeProjectSize            = 5
-	HighNumberOfTODOsThreshold           = 15
+	HighNumberOfTODOsThreshold           = 20
 	DeductionHighNumberOfTODOs           = 15
+	DeductionMinorNumberOfTODOs          = 5
 	MultiplePotentialSecretKeysThreshold = 5
 	DeductionMultiplePotentialSecretKeys = 20
 	MultipleEmptyFilesThreshold          = 5
 	DeductionMultipleEmptyFiles          = 10
+	DeductionMinorEmptyFiles             = 5
 	MultipleWarningsThreshold            = 5
 	DeductionMultipleWarnings            = 5
 )

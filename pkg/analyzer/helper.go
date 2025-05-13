@@ -10,17 +10,15 @@ import (
 )
 
 var progressMessages = []string{
-	"🔍 Sherlock Holmes mode: Investigating your codebase...",
-	"🤖 Robot overlord: Scanning your codebase...",
-	"🧪 Science experiment in progress: Analyzing your code...",
-	"🕵️‍♂️ Code Detective: Uncovering your secrets...",
-	"🔮 Crystal ball: Predicting your code's future...",
-	"🧙‍♂️ Wizard mode: Casting analysis spells...",
-	"🚀 Rocket science: Calculating code metrics...",
-	"🎮 Game mode: Leveling up your codebase...",
-	"🎭 Drama mode: Uncovering plot twists in your code...",
-	"🎪 Circus mode: Messing with your code files...",
-	"🧟‍♂️ Zombie mode: Eating your code...",
+	"Investigating your codebase...",
+	"Scanning your codebase...",
+	"Analyzing your code...",
+	"Uncovering your secrets...",
+	"Predicting your code's future...",
+	"Casting analysis spells...",
+	"Calculating code metrics...",
+	"Uncovering plot twists in your code...",
+	"Messing with your code files...",
 }
 
 func getRandomProgressMessage() string {
