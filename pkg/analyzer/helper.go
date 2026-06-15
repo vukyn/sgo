@@ -22,7 +22,7 @@ var progressMessages = []string{
 }
 
 func getRandomProgressMessage() string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec // cosmetic RNG for progress-bar message, no security impact
 	return progressMessages[r.Intn(len(progressMessages))]
 }
 

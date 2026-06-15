@@ -109,7 +109,7 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 					content:  string(content),
 					isGoFile: isGoFile,
 				}
-				a.progressBar.Add(1)
+				_ = a.progressBar.Add(1)
 			}
 		}()
 	}
