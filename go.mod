@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/urfave/cli/v2 v2.27.6
-	github.com/vukyn/kuery v1.23.0
+	github.com/vukyn/kuery v1.57.0
 	golang.org/x/mod v0.24.0
 )
 
