@@ -22,8 +22,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/urfave/cli/v2 v2.27.6 h1:VdRdS98FNhKZ8/Az8B7MTyGQmpIr36O1EHybx/LaZ4g=
 github.com/urfave/cli/v2 v2.27.6/go.mod h1:3Sevf16NykTbInEnD0yKkjDAeZDS0A6bzhBH5hrMvTQ=
-github.com/vukyn/kuery v1.57.0 h1:GJJ3ATSZe+3clJnpaznj5I+YcxFTEXJC2z0SlfkVIdg=
-github.com/vukyn/kuery v1.57.0/go.mod h1:1aiso7JLgijCi8IVGc7/ibKqR2xb12OJWSr1ieFduzc=
+github.com/vukyn/kuery v1.59.0 h1:OR/0BnMMcPlQvupz3qOu5mPfJuSJI5AJQqig7dLWqEs=
+github.com/vukyn/kuery v1.59.0/go.mod h1:ImEOgLLDopgAUriFtqYrScOgQYB2TyFslvYZ0NNe/iU=
 github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 h1:gEOO8jv9F4OT7lGCjxCBTO/36wtF6j2nSip77qHd4x4=
 github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1/go.mod h1:Ohn+xnUBiLI6FVj/9LpzZWtj1/D6lUovWYBkxHVV3aM=
 golang.org/x/mod v0.24.0 h1:ZfthKaKaT4NrhGVZHO1/WDTwGES4De8KtWO0SIbNJMU=
