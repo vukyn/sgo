@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/urfave/cli/v2 v2.27.6
-	github.com/vukyn/kuery v1.59.0
+	github.com/vukyn/kuery v1.60.0
 	golang.org/x/mod v0.24.0
 )
 
@@ -15,6 +15,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
 )
