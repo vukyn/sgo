@@ -1,6 +1,12 @@
 #!make
-include ./.env
-export $(shell sed 's/=.*//' ./.env)
+# ⚠️ `-include`, not `include`, and the sed is guarded. .env is gitignored, so a
+# fresh clone does not have one — with the bare forms every target failed with
+# "No such file or directory. Stop." before reaching a recipe, which made the
+# Makefile unusable anywhere but a developer's own checkout. Only `tag` actually
+# reads a value out of .env, and it already errors on its own when VERSION is
+# unset.
+-include ./.env
+export $(shell [ -f ./.env ] && sed 's/=.*//' ./.env)
 
 PRJ=
 
