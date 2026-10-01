@@ -29,7 +29,7 @@ subject wins and the note is the thing to fix.
 
 ## This repository
 
-- [sgo onboarded](memory/sgo-onboarded.md) — standalone Go CLI (structure analyzer); pkg/ exception
+- [sgo onboarded](memory/sgo-onboarded.md) — standalone Go CLI (structure analyzer); analyzer in internal/, no pkg/
 
 ## General — platform habits and language traps that apply here
 

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
-	"github.com/vukyn/sgo/pkg/analyzer"
+	"github.com/vukyn/sgo/internal/analyzer"
 )
 
 var (

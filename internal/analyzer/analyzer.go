@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/schollz/progressbar/v3"
+	"github.com/vukyn/kuery/conv"
 	"golang.org/x/mod/modfile"
 )
 
@@ -325,7 +326,7 @@ Warnings:
 		r.TotalLines,
 		r.CommentLines,
 		r.EmptyLines,
-		formatSize(r.ProjectSize),
+		conv.FormatBytes(r.ProjectSize),
 		formatFrameworks(r.Frameworks),
 		formatList(r.TODOs),
 		formatList(r.EmptyGoFiles),
