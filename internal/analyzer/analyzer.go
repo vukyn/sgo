@@ -99,7 +99,7 @@ func (a *Analyzer) Analyze() (*AnalysisResult, error) {
 		go func() {
 			defer wg.Done()
 			for path := range pathChan {
-				content, err := os.ReadFile(path)
+				content, err := os.ReadFile(path) // #nosec G304 -- path comes from walking the user-chosen root
 				if err != nil {
 					continue
 				}
@@ -178,7 +178,7 @@ func (a *Analyzer) analyzeGoMod(result *AnalysisResult) error {
 		return nil
 	}
 
-	content, err := os.ReadFile(modPath)
+	content, err := os.ReadFile(modPath) // #nosec G304 -- fixed go.mod under the user-chosen root
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/urfave/cli/v2 v2.27.6
 	github.com/vukyn/kuery v1.67.0
-	golang.org/x/mod v0.24.0
+	golang.org/x/mod v0.40.0
 )
 
 require (
